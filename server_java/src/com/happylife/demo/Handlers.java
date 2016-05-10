@@ -58,35 +58,38 @@ public class Handlers {
 
 		@Override
 		public void handle(HttpExchange he) throws IOException {
-			System.out.println("Served by /dbPost handler...");
+			//System.out.println("Served by /dbPost handler...");
 			// parse request
-			Map<String, Object> parameters = new HashMap<String, Object>();
-			InputStreamReader isr = new InputStreamReader(he.getRequestBody(), "utf-8");
-			BufferedReader br = new BufferedReader(isr);
-			String query = br.readLine();
-			parseQuery(query, parameters);
+      try {
+        Map<String, Object> parameters = new HashMap<String, Object>();
+        InputStreamReader isr = new InputStreamReader(he.getRequestBody(), "utf-8");
+        BufferedReader br = new BufferedReader(isr);
+        String query = br.readLine();
+        parseQuery(query, parameters);
 
-			String value = (String)parameters.get("value");
+        String value = (String)parameters.get("value");
 
-			try {
-				Connection conn = getConnection();
-				Statement stmt = conn.createStatement();
-				stmt.executeUpdate("INSERT INTO reto1 VALUES (" + value + ", now())");
-				stmt.close();
-				conn.close();
-				System.out.println("Value inserted.");
-			}
+        Connection conn = getConnection();
+        Statement stmt = conn.createStatement();
+        stmt.executeUpdate("INSERT INTO reto1 VALUES (" + value + ", now())");
+        stmt.close();
+        conn.close();
+        System.out.println("Value inserted.");
+
+
+        // send response
+        he.sendResponseHeaders(200, 0);
+        String response = "<html><body><h1>POST - JAVA</h1></body></html>";
+        OutputStream os = he.getResponseBody();
+        os.write(response.toString().getBytes());
+        os.close();
+      }
+
 			catch (SQLException e) {
 				System.out.println(e.getMessage());
-			}
-
-			// send response
-			he.sendResponseHeaders(200, 0);
-			String response = "<html><body><h1>POST!</h1></body></html>";
-			OutputStream os = he.getResponseBody();
-			os.write(response.toString().getBytes());
-			os.close();
-
+			} catch (Exception e) {
+				System.out.println(e.getMessage());
+      }
 		}
 	}
 

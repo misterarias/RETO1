@@ -24,7 +24,7 @@ class S(BaseHTTPRequestHandler):
         elif ctype == 'application/x-www-form-urlencoded':
             length = int(self.headers['content-length'])
             postvars = parse_qs(
-                    self.rfile.read(length), 
+                    self.rfile.read(length),
                     keep_blank_values=1)
         else:
             postvars = {}
@@ -41,20 +41,26 @@ class S(BaseHTTPRequestHandler):
 
     def do_HEAD(self):
         self._set_headers()
-        
-    def do_POST(self):
-        # Inserts posted data in MySQL server
-        postvars = self.parse_POST()
-        mysql_conn = MySQLdb.connect(host= "reto1db",
+
+    conn = None
+    def get_conn(self):
+      if not self.conn:
+        self.conn = MySQLdb.connect(host= "reto1db",
                   user="root",
                   passwd="passwd",
                   db="reto1")
+      return self.conn
+
+    def do_POST(self):
+        # Inserts posted data in MySQL server
+        postvars = self.parse_POST()
+        mysql_conn = self.get_conn()
         x = mysql_conn.cursor()
         x.execute("""INSERT INTO reto1 VALUES (%s, now())""", (postvars.get("value")))
         mysql_conn.commit()
         self._set_headers()
-        self.wfile.write("<html><body><h1>POST!</h1></body></html>")
-        
+        self.wfile.write("<html><body><h1>POST reuse!</h1></body></html>")
+
 def run(server_class=HTTPServer, handler_class=S, port=80):
     server_address = ('', port)
     httpd = server_class(server_address, handler_class)

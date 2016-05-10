@@ -1,0 +1,52 @@
+version: '2'
+services:
+  db:
+    build: ./DB
+    ports:
+      - 3306:3306
+    expose: 
+      - 3306
+    environment:
+      MYSQL_ROOT_PASSWORD: passwd
+
+  server:
+    build: ./server_optimized
+    links:
+      - consumer
+    expose:
+      - 80
+  
+  server_lb:
+    image: dockercloud/haproxy
+    links:
+      - server
+    ports:
+      - 8888:80
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  consumer:
+    build: ./zmq_consumer
+    links:
+      - db:reto1db
+    expose:
+      - 5570
+
+# consumer_lb:
+#    image: dockercloud/haproxy
+#    links:
+#      - consumer
+#    volumes:
+#      - /var/run/docker.sock:/var/run/docker.sock
+
+  tsung:
+    build: ./load
+    links:
+      - server_lb:reto1server
+    expose:
+      - 80
+    ports:
+      - 80:80
+    environment:
+      RATE: 10
+      HITS: 10
