@@ -11,26 +11,27 @@ services:
 
   server:
     build: ./server_optimized
-    links:
-      - consumer
-    expose:
-      - 80
-  
-  server_lb:
-    image: dockercloud/haproxy
-    links:
-      - server
     ports:
       - 8888:80
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-
+    expose:
+      - 80
+      - 5556
+  
+# server_lb:
+#    image: dockercloud/haproxy
+#    links:
+#      - server
+#    ports:
+#      - 8888:80
+#      - 5556:5556
+#    volumes:
+#      - /var/run/docker.sock:/var/run/docker.sock
+#
   consumer:
     build: ./zmq_consumer
     links:
       - db:reto1db
-    expose:
-      - 5570
+      - server:server.local
 
 # consumer_lb:
 #    image: dockercloud/haproxy
@@ -42,7 +43,7 @@ services:
   tsung:
     build: ./load
     links:
-      - server_lb:reto1server
+      - server:reto1server
     expose:
       - 80
     ports:

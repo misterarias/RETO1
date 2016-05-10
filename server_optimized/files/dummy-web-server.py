@@ -16,27 +16,19 @@ from urlparse import parse_qs
 import SocketServer
 import MySQLdb
 
-# Taken from. http://zguide.zeromq.org/py:asyncsrv (sharing is caring)
 import zmq
 import sys
-import threading
-import time
-from random import randint, random
-
 
 class S(BaseHTTPRequestHandler):
 
+  topic = 999
   socket = None
   def get_socket(self):
     if not self.socket:
         context = zmq.Context()
-        self.socket = context.socket(zmq.DEALER)
-        identity = u'worker-server'
-        self.socket.identity = identity.encode('ascii')
-        self.socket.connect('tcp://consumer:5570')
-        self.wfile.write('Client %s started' % (identity))
-        poll = zmq.Poller()
-        poll.register(self.socket, zmq.POLLIN)
+        port = "5556"
+        self.socket = context.socket(zmq.PUB)
+        self.socket.bind("tcp://*:%s" % port)
     return self.socket
 
   def parse_POST(self):
@@ -67,14 +59,14 @@ class S(BaseHTTPRequestHandler):
   def do_POST(self):
     # Inserts posted data in a ZMQ queue
       postvars = self.parse_POST()
-      value = postvars.get("value")
+      value = postvars.get("value")[0]
       socket = self.get_socket()
 
-      print "Sending message: %r" % value
-      socket.send_string(u'%r' % value)
-
-      message = socket.recv()
-      print "Received reply ", request, "[", message, "]"
+      self.wfile.write("Sending message: '%r' with topic '%s'" % (value, self.topic))
+      socket.send_multipart([
+        b"%03d" % self.topic,
+        b"%s" % value
+      ])
 
       self._set_headers()
       self.wfile.write("<html><body><h1>POST reuse!</h1></body></html>")
