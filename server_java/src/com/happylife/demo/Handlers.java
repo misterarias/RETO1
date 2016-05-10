@@ -13,120 +13,110 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.sun.net.httpserver.Headers;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
-
 import java.sql.Connection;
 import java.sql.Statement;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
+import com.sun.net.httpserver.Headers;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
 
 public class Handlers {
-	public static class DbPostHandler implements HttpHandler {
+  public static class DbPostHandler implements HttpHandler {
 
-		private String db;
+    private static int iterator = 0;
+    private Connection conn = null;
 
-		public DbPostHandler(String db) {
-			try {
-				// The newInstance() call is a work around for some
-				// broken Java implementations
-
-				Class.forName("com.mysql.jdbc.Driver").newInstance();
-			} catch (Exception ex) {
-				System.out.println("Driver not found!!!");
-			}
-			this.db = db;
-		}
-
-		private Connection getConnection() {
-			Connection conn = null;
-			try {
-				conn = DriverManager.getConnection("jdbc:mysql://" + this.db + "/reto1?" +
-                                   "user=root&password=passwd");
-
-			} catch (SQLException ex) {
-				// handle any errors
-				System.out.println("SQLException: " + ex.getMessage());
-				System.out.println("SQLState: " + ex.getSQLState());
-				System.out.println("VendorError: " + ex.getErrorCode());
-			}
-			return conn;
-		}
-
-
-		@Override
-		public void handle(HttpExchange he) throws IOException {
-			//System.out.println("Served by /dbPost handler...");
-			// parse request
+    public void DbPostHandler() {
       try {
-        Map<String, Object> parameters = new HashMap<String, Object>();
-        InputStreamReader isr = new InputStreamReader(he.getRequestBody(), "utf-8");
-        BufferedReader br = new BufferedReader(isr);
-        String query = br.readLine();
-        parseQuery(query, parameters);
+        Class.forName("com.mysql.jdbc.Driver").newInstance();
+      } catch (Exception ex) {
+        System.err.println("Driver not found!!!");
+      }
+      Connection conn = getConnection();
+    }
 
-        String value = (String)parameters.get("value");
+    private Connection getConnection() {
+      Connection conn = null;
+      try {
+        conn = DriverManager.getConnection("jdbc:mysql://" + "reto1db" + "/reto1?" +
+                                 "user=root&password=passwd");
 
-        Connection conn = getConnection();
+      } catch (SQLException ex) {
+        // handle any errors
+        System.err.println("SQLException: " + ex.getMessage());
+        System.err.println("SQLState: " + ex.getSQLState());
+        System.err.println("VendorError: " + ex.getErrorCode());
+      }
+      return conn;
+    }
+
+    @Override
+    public void handle(HttpExchange he) throws IOException {
+      // parse request
+      Map<String, Object> parameters = new HashMap<String, Object>();
+      InputStreamReader isr = new InputStreamReader(he.getRequestBody(), "utf-8");
+      BufferedReader br = new BufferedReader(isr);
+      String query = br.readLine();
+      parseQuery(query, parameters);
+
+      try {
         Statement stmt = conn.createStatement();
-        stmt.executeUpdate("INSERT INTO reto1 VALUES (" + value + ", now())");
+        stmt.executeUpdate("INSERT INTO reto1 VALUES (" + System.currentTimeMillis() + ", now())");
         stmt.close();
-        conn.close();
-        System.out.println("Value inserted.");
-
-
-        // send response
-        he.sendResponseHeaders(200, 0);
-        String response = "<html><body><h1>POST - JAVA</h1></body></html>";
-        OutputStream os = he.getResponseBody();
-        os.write(response.toString().getBytes());
-        os.close();
+      } catch (SQLException ex) {
+        // handle any errors
+        System.err.println("SQLException: " + ex.getMessage());
+        System.err.println("SQLState: " + ex.getSQLState());
+        System.err.println("VendorError: " + ex.getErrorCode());
       }
 
-			catch (SQLException e) {
-				System.out.println(e.getMessage());
-			} catch (Exception e) {
-				System.out.println(e.getMessage());
+      // send response
+      he.sendResponseHeaders(200, 0);
+      String response = "<html><body><h1>POST!</h1></body></html>";
+      OutputStream os = he.getResponseBody();
+      os.write(response.toString().getBytes());
+      os.close();
+
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  public static void parseQuery(String query, Map<String, Object> parameters) throws UnsupportedEncodingException {
+
+    if (query != null) {
+      String pairs[] = query.split("[&]");
+
+      for (String pair : pairs) {
+        String param[] = pair.split("[=]");
+
+        String key = null;
+        String value = null;
+        if (param.length > 0) {
+          key = URLDecoder.decode(param[0], System.getProperty("file.encoding"));
+        }
+
+        if (param.length > 1) {
+          value = URLDecoder.decode(param[1], System.getProperty("file.encoding"));
+        }
+
+        if (parameters.containsKey(key)) {
+          Object obj = parameters.get(key);
+          if (obj instanceof List<?>) {
+            List<String> values = (List<String>) obj;
+            values.add(value);
+          } else if (obj instanceof String) {
+            List<String> values = new ArrayList<String>();
+            values.add((String) obj);
+            values.add(value);
+            parameters.put(key, values);
+          }
+        } else {
+          parameters.put(key, value);
+        }
       }
-		}
-	}
-
-	@SuppressWarnings("unchecked")
-	public static void parseQuery(String query, Map<String, Object> parameters) throws UnsupportedEncodingException {
-
-		if (query != null) {
-			String pairs[] = query.split("[&]");
-
-			for (String pair : pairs) {
-				String param[] = pair.split("[=]");
-
-				String key = null;
-				String value = null;
-				if (param.length > 0) {
-					key = URLDecoder.decode(param[0], System.getProperty("file.encoding"));
-				}
-
-				if (param.length > 1) {
-					value = URLDecoder.decode(param[1], System.getProperty("file.encoding"));
-				}
-
-				if (parameters.containsKey(key)) {
-					Object obj = parameters.get(key);
-					if (obj instanceof List<?>) {
-						List<String> values = (List<String>) obj;
-						values.add(value);
-					} else if (obj instanceof String) {
-						List<String> values = new ArrayList<String>();
-						values.add((String) obj);
-						values.add(value);
-						parameters.put(key, values);
-					}
-				} else {
-					parameters.put(key, value);
-				}
-			}
-		}
-	}
+    }
+  }
 }
+
